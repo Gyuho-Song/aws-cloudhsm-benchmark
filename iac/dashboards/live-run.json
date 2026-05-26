@@ -1,0 +1,107 @@
+{
+  "uid": "hsm-bmt-live-run",
+  "title": "CloudHSM BMT — Live Run",
+  "tags": ["hsm-bmt", "tier-a", "red"],
+  "schemaVersion": 39,
+  "version": 10,
+  "time": { "from": "now-15m", "to": "now" },
+  "refresh": "5s",
+  "templating": {
+    "list": [
+      {
+        "name": "runId",
+        "type": "query",
+        "label": "Run ID",
+        "datasource": { "type": "prometheus", "uid": "amp" },
+        "query": "label_values({__name__=~\"hsm_operations_count_total|hsm_bmt_cbench_ops_total\"}, run_id)",
+        "refresh": 2,
+        "includeAll": false,
+        "multi": false
+      },
+      {
+        "name": "showSubProc",
+        "type": "custom",
+        "label": "Show sub-process series",
+        "description": "When 1, panels emit per process_idx series in addition to the run-aggregate.",
+        "query": "0,1",
+        "current": { "selected": false, "text": "0", "value": "0" },
+        "options": [
+          { "selected": true,  "text": "0", "value": "0" },
+          { "selected": false, "text": "1", "value": "1" }
+        ]
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Throughput (ops/s)",
+      "description": "Aggregates Java loader (hsm.operations.count) and C bench (tsp.bmt.cbench.ops) per run. Whichever runner is active populates the curve. Multi-proc split is gated by $showSubProc.",
+      "datasource": { "type": "prometheus", "uid": "amp" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(sum (rate(hsm_operations_count_total{run_id=\"$runId\"}[2m])) or vector(0)) + (sum (rate(hsm_bmt_cbench_ops_total{run_id=\"$runId\"}[2m])) or vector(0))",
+          "legendFormat": "ops/s (all procs)"
+        },
+        {
+          "refId": "B",
+          "expr": "sum by (process_idx) (rate(hsm_operations_count_total{run_id=\"$runId\"}[2m]) or rate(hsm_bmt_cbench_ops_total{run_id=\"$runId\"}[2m])) and on() vector(${showSubProc:raw}) == 1",
+          "legendFormat": "proc={{process_idx}}"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Latency p50 / p95 / p99 (ms)",
+      "description": "C bench explicit histogram (otel_emit emits tsp.bmt.cbench.duration with explicit ms buckets). Quantiles computed via histogram_quantile() over rate of bucket counters. Run-level aggregate (sum by le), no proc split.",
+      "datasource": { "type": "prometheus", "uid": "amp" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "custom": { "lineWidth": 2 }
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(hsm_bmt_cbench_duration_milliseconds_bucket{run_id=\"$runId\"}[2m])))",
+          "legendFormat": "p99"
+        },
+        {
+          "refId": "B",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(hsm_bmt_cbench_duration_milliseconds_bucket{run_id=\"$runId\"}[2m])))",
+          "legendFormat": "p95"
+        },
+        {
+          "refId": "C",
+          "expr": "histogram_quantile(0.50, sum by (le) (rate(hsm_bmt_cbench_duration_milliseconds_bucket{run_id=\"$runId\"}[2m])))",
+          "legendFormat": "p50"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Error rate (errors/s)",
+      "datasource": { "type": "prometheus", "uid": "amp" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(sum (rate(hsm_operations_errors_total{run_id=\"$runId\"}[2m])) or vector(0)) + (sum (rate(hsm_bmt_cbench_errs_total{run_id=\"$runId\"}[2m])) or vector(0))",
+          "legendFormat": "errors/s (all procs)"
+        },
+        {
+          "refId": "B",
+          "expr": "sum by (process_idx) (rate(hsm_operations_errors_total{run_id=\"$runId\"}[2m]) or rate(hsm_bmt_cbench_errs_total{run_id=\"$runId\"}[2m])) and on() vector(${showSubProc:raw}) == 1",
+          "legendFormat": "proc={{process_idx}}"
+        }
+      ]
+    }
+  ]
+}

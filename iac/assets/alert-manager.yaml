@@ -1,0 +1,29 @@
+alertmanager_config: |
+  global:
+    resolve_timeout: 5m
+  route:
+    receiver: hsm-bmt-sns
+    group_by: ['alertname', 'run_id']
+    group_wait: 10s
+    group_interval: 5m
+    repeat_interval: 1h
+    routes:
+      - match:
+          severity: critical
+        receiver: hsm-bmt-sns
+        repeat_interval: 15m
+  receivers:
+    - name: hsm-bmt-sns
+      sns_configs:
+        - topic_arn: ${SNS_TOPIC_ARN}
+          sigv4:
+            region: ap-northeast-2
+          subject: 'CloudHSM BMT alert: {{ .CommonLabels.alertname }}'
+          message: |
+            {{ range .Alerts }}
+            Alert: {{ .Labels.alertname }}
+            Severity: {{ .Labels.severity }}
+            Run: {{ .Labels.run_id }}
+            Started: {{ .StartsAt }}
+            Description: {{ .Annotations.description }}
+            {{ end }}

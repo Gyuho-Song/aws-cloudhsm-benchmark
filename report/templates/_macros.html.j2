@@ -1,0 +1,26 @@
+{# Reusable Korean-friendly format helpers used by section templates. #}
+
+{% macro render_table(table) %}
+<table class="data-table">
+  <caption>{{ table.caption }}</caption>
+  <thead>
+    <tr>
+    {% for h in table.headers %}<th>{{ h }}</th>{% endfor %}
+    </tr>
+  </thead>
+  <tbody>
+    {% for row in table.rows %}
+    <tr>
+      {% for cell in row %}<td>{{ cell }}</td>{% endfor %}
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endmacro %}
+
+{% macro render_chart(chart) %}
+<figure class="chart">
+  {{ chart.svg_str | safe }}
+  <figcaption>{{ chart.alt_text_ko }}</figcaption>
+</figure>
+{% endmacro %}

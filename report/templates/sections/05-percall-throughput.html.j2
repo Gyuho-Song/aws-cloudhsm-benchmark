@@ -1,0 +1,8 @@
+{% from '_macros.html.j2' import render_table %}
+<section id="per-call-throughput">
+  <h2>4. 측정 결과 상세</h2>
+  <h3>4.1 처리량 (ops/s, 셀 합산)</h3>
+  {{ render_table(ctx.per_call_throughput_table) }}
+  <p class="note">payload 256 vs 1024 차이 ≈ 5 % 이내, AES-128 vs AES-256 차이 ≈ 1 % 이내,
+  mode 별 차이 ≈ 5 % 이내. cs 비례성 (cs=N 처리량 ÷ cs=desired 처리량) ≈ N/desired 로 선형.</p>
+</section>

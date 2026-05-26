@@ -1,0 +1,20 @@
+<section id="environment">
+  <h2>2. 측정 환경</h2>
+  <table class="kv-table">
+    <tr><th>AWS 리전</th><td><code>ap-northeast-2</code> (Seoul)</td></tr>
+    <tr><th>가용 영역</th><td>4개 AZ (a / b / c / d) 에 HSM 균등 분산</td></tr>
+    <tr><th>측정 클라이언트</th><td>EC2 <code>c8i.8xlarge</code> (32 vCPU, 64 GiB, 15 Gbps NIC)</td></tr>
+    <tr><th>OS</th><td>Amazon Linux 2023</td></tr>
+    <tr><th>HSM 모델</th><td><code>hsm2m.medium</code> FIPS 140-2 Level 3 (AWS CloudHSM v2)</td></tr>
+    <tr><th>클러스터 모델</th><td>mesh replication (모든 HSM이 모든 키를 동기 보유)</td></tr>
+    <tr><th>PKCS#11 SDK</th><td>cloudhsm-pkcs11 5.17.x</td></tr>
+    {% if ctx.runtime and ctx.runtime.is_c_native %}
+    <tr><th>측정 binary</th><td>C native, PKCS#11 직접 호출</td></tr>
+    {% else %}
+    <tr><th>측정 binary</th><td>Java 21 (Amazon Corretto), CloudHSM JCE Provider 5</td></tr>
+    {% endif %}
+    <tr><th>binary sha256</th><td><code class="hash">{{ ctx.binary_sha256 }}</code></td></tr>
+    <tr><th>binary 버전 ID</th><td><code class="hash">{{ ctx.binary_version_id }}</code></td></tr>
+  </table>
+  <p class="note">EC2 클라이언트와 HSM 클러스터는 동일 VPC 내 private subnet 으로 연결되어 있으며, mTLS 인증 + Crypto User 비밀번호는 AWS Secrets Manager 에 저장됩니다.</p>
+</section>

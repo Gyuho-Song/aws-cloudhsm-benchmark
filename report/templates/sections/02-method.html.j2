@@ -1,0 +1,38 @@
+<section id="method">
+  <h2>3. 측정 방법</h2>
+
+  <h3>매트릭스</h3>
+  <table class="kv-table">
+    <tr><th>알고리즘</th><td>AES-128, AES-256 (2종)</td></tr>
+    <tr><th>암호 모드</th><td>{{ ctx.method.per_call_modes_ko if ctx.method else 'ECB · CBC · CTR · GCM · CMAC' }}</td></tr>
+    <tr><th>평문 크기</th><td>256 B, 1024 B (2종)</td></tr>
+    <tr><th>cluster size sweep</th><td>{{ ctx.cluster_size_sweep | join(' → ') }} (실 HSM 축소)</td></tr>
+    <tr><th>총 셀 수</th><td>{{ ctx.core_results.total_cells }}</td></tr>
+  </table>
+
+  <h3>셀 당 측정 조건</h3>
+  <table class="kv-table">
+    <tr><th>측정 시간</th><td>{{ ctx.method.steady_s if ctx.method else 360 }} 초 (warm-up 별도 없음)</td></tr>
+    <tr><th>셀 사이 cool-down</th><td>{{ ctx.method.cell_cooldown_s if ctx.method else 30 }} 초</td></tr>
+    <tr><th>사이즈 사이 cool-down</th><td>{{ ctx.method.cluster_cooldown_s if ctx.method else 300 }} 초 (mesh + mTLS pool 안정화)</td></tr>
+    <tr><th>워커 모델</th><td>{{ ctx.method.worker_description_ko if ctx.method else 'C native bench, libpthread' }}</td></tr>
+  </table>
+
+  <h3>측정 단위 시퀀스</h3>
+  <p>각 cluster size 단계에서 (algo × mode × payload) 매트릭스의 모든 셀을 차례로 측정한 뒤,
+  <code>cloudhsmv2:DeleteHsm</code>으로 HSM 1대를 줄여 다음 단계로 진행합니다. 클라이언트 측
+  PKCS#11 cfg가 자동 갱신되고 (verify-and-retry 3회), 클러스터·cfg·IP 집합 invariant 검증
+  후 mesh 안정화 300초를 거쳐 다음 측정이 시작됩니다. 이는 운영 환경에서 HSM 1대가 실제로
+  죽는 상황을 그대로 모사합니다 (논리적 토글 아님).</p>
+
+  <h3>결과 집계 규칙</h3>
+  <table class="data-table">
+    <thead><tr><th>지표</th><th>proc 합산 방식</th></tr></thead>
+    <tbody>
+      <tr><td>ops/s</td><td>모든 proc 의 단순 합</td></tr>
+      <tr><td>p99 (지연)</td><td>proc 별 max (최악 관측값)</td></tr>
+      <tr><td>p50 (지연)</td><td>proc 별 평균</td></tr>
+      <tr><td>오류 건수</td><td>모든 proc 의 합</td></tr>
+    </tbody>
+  </table>
+</section>

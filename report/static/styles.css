@@ -1,0 +1,46 @@
+/* CloudHSM BMT Korean report — A4 print + screen styles. */
+
+@page {
+  size: A4;
+  margin: 20mm 18mm 20mm 18mm;
+  @bottom-right { content: counter(page) " / " counter(pages); font-size: 9pt; color: #555; }
+  @top-left { content: "CloudHSM CloudHSM BMT Phase 1"; font-size: 9pt; color: #888; }
+}
+
+html { font-family: "Noto Sans CJK KR", "NotoSansCJKkr", sans-serif; font-size: 11pt; line-height: 1.5; color: #222; }
+body { max-width: 1100px; margin: 0 auto; padding: 0 1rem; }
+
+header.cover { padding: 4rem 0; border-bottom: 2px solid #1f3a5f; margin-bottom: 2rem; }
+header.cover h1 { color: #1f3a5f; margin: 0 0 0.6rem 0; font-size: 2rem; }
+header.cover .subtitle { color: #555; margin: 0.2rem 0; }
+
+nav.toc { background: #f7f9fb; padding: 1rem 1.5rem; border-radius: 6px; margin-bottom: 2rem; page-break-after: always; }
+nav.toc ol { margin: 0; padding-left: 1.2rem; }
+nav.toc a { color: #1f3a5f; text-decoration: none; }
+
+section { page-break-inside: avoid; margin: 2rem 0; }
+section h2 { color: #1f3a5f; border-bottom: 1px solid #cbd6e2; padding-bottom: 0.3rem; }
+section.appendix h2 { color: #555; }
+
+table.data-table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 10pt; }
+table.data-table caption { caption-side: top; text-align: left; color: #555; font-style: italic; padding-bottom: 0.5rem; }
+table.data-table th, table.data-table td { border: 1px solid #cbd6e2; padding: 0.4rem 0.6rem; text-align: right; }
+table.data-table th { background: #f7f9fb; color: #1f3a5f; }
+table.data-table td:first-child, table.data-table td:nth-child(2), table.data-table td:nth-child(3) { text-align: left; }
+/* Long tables (e.g. 100-row per-call) split across pages cleanly. */
+table.data-table thead { display: table-header-group; }  /* header repeats on each printed page */
+table.data-table tr { page-break-inside: avoid; page-break-after: auto; }
+
+figure.chart { margin: 1rem 0; text-align: center; }
+figure.chart svg { max-width: 100%; height: auto; }
+figure.chart figcaption { font-size: 9pt; color: #555; margin-top: 0.4rem; }
+
+code { background: #f3f5f7; padding: 0 0.2rem; border-radius: 3px; font-family: "Source Code Pro", monospace; }
+pre { background: #f7f9fb; padding: 0.8rem; border-radius: 4px; overflow-x: auto; font-size: 10pt; }
+
+p.lead { font-size: 1.1rem; color: #1f3a5f; }
+.footnote { font-size: 9pt; color: #888; }
+
+@media screen {
+  body { padding: 1rem 2rem; }
+}

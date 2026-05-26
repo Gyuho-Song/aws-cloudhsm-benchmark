@@ -1,0 +1,80 @@
+# PromQL alert rules for CloudHSM CloudHSM BMT.
+#
+# OTel → Prometheus name mapping (via prometheusremotewrite exporter conventions):
+#   Counter   hsm.operations.count            → hsm_operations_count_total
+#   Counter   hsm.operations.errors           → hsm_operations_errors_total
+#   Histogram hsm.operations.duration         → hsm_operations_duration_{bucket,count,sum}
+#   Gauge     hsm.client.pool.waiters         → hsm_client_pool_waiters       (no suffix)
+#   Histogram hsm.client.queue.wait_time      → hsm_client_queue_wait_time_{bucket,count,sum}
+#   Counter   hsm.client.failover.count       → hsm_client_failover_count_total
+#   Gauge     hsm.client.cluster.healthy_hsms → hsm_client_cluster_healthy_hsms
+#
+# All thresholds below are absolute initial values; they will be re-tuned to
+# baseline-relative once Phase 1 BMT establishes a steady-state baseline.
+
+groups:
+  - name: hsm-bmt-tier-a-red
+    interval: 30s
+    rules:
+      - alert: HSM-Latency-P99-High
+        expr: histogram_quantile(0.99, sum by (le, run_id) (rate(hsm_operations_duration_bucket[5m]))) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          tier: A
+        annotations:
+          summary: 'HSM operation p99 latency exceeds 100ms (initial absolute threshold)'
+          description: 'p99 latency for run {{ $labels.run_id }} is {{ $value }}s — investigate cluster load or saturation.'
+
+      - alert: HSM-Error-Rate-High
+        expr: sum by (run_id) (rate(hsm_operations_errors_total[5m])) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+          tier: A
+        annotations:
+          summary: 'HSM error rate above 0.5 ops/s'
+          description: 'Run {{ $labels.run_id }} error rate is {{ $value }} ops/s.'
+
+  - name: hsm-bmt-tier-b-use
+    interval: 30s
+    rules:
+      - alert: HSM-Pool-Saturation
+        expr: hsm_client_pool_waiters > 5
+        for: 1m
+        labels:
+          severity: warning
+          tier: B
+        annotations:
+          summary: 'Session pool has waiters — saturation'
+          description: 'Run {{ $labels.run_id }} has {{ $value }} waiters on the session pool.'
+
+      - alert: HSM-Queue-Wait-Spike
+        expr: histogram_quantile(0.95, sum by (le, run_id) (rate(hsm_client_queue_wait_time_bucket[2m]))) > 0.05
+        for: 2m
+        labels:
+          severity: warning
+          tier: B
+        annotations:
+          summary: 'Queue wait p95 above 50ms'
+          description: 'Run {{ $labels.run_id }} queue wait p95 is {{ $value }}s.'
+
+      - alert: HSM-Failover-Storm
+        expr: increase(hsm_client_failover_count_total[5m]) > 10
+        for: 0m
+        labels:
+          severity: critical
+          tier: B
+        annotations:
+          summary: 'HSM failover storm — >10 failovers in 5m'
+          description: 'Run {{ $labels.run_id }} experienced {{ $value }} failovers in 5m. Check cluster health.'
+
+      - alert: HSM-Cluster-Degraded
+        expr: hsm_client_cluster_healthy_hsms < ${EXPECTED_HSMS}
+        for: 1m
+        labels:
+          severity: critical
+          tier: B
+        annotations:
+          summary: 'Cluster has fewer healthy HSMs than expected'
+          description: 'Run {{ $labels.run_id }} reports {{ $value }} healthy HSMs (expected ${EXPECTED_HSMS}).'

@@ -1,0 +1,57 @@
+{
+  "uid": "hsm-bmt-native-aws",
+  "title": "CloudHSM BMT — Native AWS Metrics",
+  "tags": ["hsm-bmt", "cloudwatch"],
+  "schemaVersion": 39,
+  "version": 1,
+  "time": { "from": "now-1h", "to": "now" },
+  "refresh": "60s",
+  "templating": { "list": [] },
+  "panels": [
+    {
+      "id": 1, "type": "timeseries", "title": "CloudHSM HsmSessionCount (instance)",
+      "datasource": { "type": "cloudwatch", "uid": "cw" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        { "namespace": "AWS/CloudHSM", "metricName": "HsmSessionCount", "statistic": "Average",
+          "dimensions": { "ClusterId": "*", "HsmId": "*" }, "period": 60 }
+      ]
+    },
+    {
+      "id": 2, "type": "timeseries", "title": "CloudHSM HsmKeysSessionOccupied / HsmKeysTokenOccupied",
+      "datasource": { "type": "cloudwatch", "uid": "cw" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        { "namespace": "AWS/CloudHSM", "metricName": "HsmKeysSessionOccupied", "statistic": "Average", "period": 60 },
+        { "namespace": "AWS/CloudHSM", "metricName": "HsmKeysTokenOccupied", "statistic": "Average", "period": 60 }
+      ]
+    },
+    {
+      "id": 3, "type": "timeseries", "title": "CloudHSM HsmUnhealthy",
+      "datasource": { "type": "cloudwatch", "uid": "cw" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "targets": [
+        { "namespace": "AWS/CloudHSM", "metricName": "HsmUnhealthy", "statistic": "Maximum", "period": 60 }
+      ]
+    },
+    {
+      "id": 4, "type": "timeseries", "title": "EC2 ENA *_allowance_exceeded counters",
+      "datasource": { "type": "cloudwatch", "uid": "cw" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "targets": [
+        { "namespace": "AWS/EC2", "metricName": "BWAllowanceExceeded", "statistic": "Sum", "period": 60 },
+        { "namespace": "AWS/EC2", "metricName": "PPSAllowanceExceeded", "statistic": "Sum", "period": 60 },
+        { "namespace": "AWS/EC2", "metricName": "ConntrackAllowanceExceeded", "statistic": "Sum", "period": 60 }
+      ]
+    },
+    {
+      "id": 5, "type": "logs", "title": "Loader app + SDK 5 logs (recent errors)",
+      "datasource": { "type": "cloudwatch", "uid": "cw" },
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 16 },
+      "targets": [
+        { "logGroups": [ { "name": "/hsm-bmt/loader" } ],
+          "queryString": "fields @timestamp, @message | filter @message like /ERROR|FAILED|TIMEOUT/ | stats count() as errors by bin(5m)" }
+      ]
+    }
+  ]
+}

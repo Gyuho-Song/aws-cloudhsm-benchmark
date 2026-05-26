@@ -1,0 +1,145 @@
+{
+  "uid": "hsm-bmt-per-call",
+  "title": "CloudHSM BMT \u2014 Per-Call",
+  "tags": [
+    "hsm-bmt",
+    "histogram"
+  ],
+  "schemaVersion": 39,
+  "version": 3,
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "refresh": "",
+  "templating": {
+    "list": [
+      {
+        "name": "runId",
+        "type": "query",
+        "label": "Run ID",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "amp"
+        },
+        "query": "label_values({__name__=~\"hsm_operations_count_total|hsm_bmt_cbench_ops_total\"}, run_id)",
+        "refresh": 2
+      },
+      {
+        "name": "step",
+        "type": "query",
+        "label": "V3 step",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "amp"
+        },
+        "query": "label_values(bmt_v3_latency_seconds_bucket{run_id=\"$runId\"}, step)",
+        "refresh": 2,
+        "includeAll": true
+      },
+      {
+        "name": "showSubProc",
+        "type": "custom",
+        "label": "Show sub-process series",
+        "description": "When 1, latency panels split by process_idx in addition to the run-aggregate.",
+        "query": "0,1",
+        "current": {
+          "selected": false,
+          "text": "0",
+          "value": "0"
+        },
+        "options": [
+          {
+            "selected": true,
+            "text": "0",
+            "value": "0"
+          },
+          {
+            "selected": false,
+            "text": "1",
+            "value": "1"
+          }
+        ]
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "heatmap",
+      "title": "V3 step latency heatmap",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "amp"
+      },
+      "gridPos": {
+        "h": 12,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (le, step) (rate(bmt_v3_latency_seconds_bucket{run_id=\"$runId\", step=~\"$step\"}[5m]))",
+          "format": "heatmap",
+          "legendFormat": "{{step}} le={{le}}"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Per-mode latency p99",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "amp"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 12
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.99, sum by (le, mode, algorithm) (rate(bmt_per_call_latency_seconds_bucket{run_id=\"$runId\"}[5m])))",
+          "legendFormat": "{{algorithm}} {{mode}} (all procs)"
+        },
+        {
+          "refId": "B",
+          "expr": "histogram_quantile(0.99, sum by (le, mode, algorithm, process_idx) (rate(bmt_per_call_latency_seconds_bucket{run_id=\"$runId\"}[5m]))) and on() vector(${showSubProc:raw}) == 1",
+          "legendFormat": "{{algorithm}} {{mode}} proc={{process_idx}}"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Per-mode latency p95",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "amp"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 20
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (le, mode, algorithm) (rate(bmt_per_call_latency_seconds_bucket{run_id=\"$runId\"}[5m])))",
+          "legendFormat": "{{algorithm}} {{mode}} p95 (all procs)"
+        },
+        {
+          "refId": "B",
+          "expr": "histogram_quantile(0.95, sum by (le, mode, algorithm, process_idx) (rate(bmt_per_call_latency_seconds_bucket{run_id=\"$runId\"}[5m]))) and on() vector(${showSubProc:raw}) == 1",
+          "legendFormat": "{{algorithm}} {{mode}} p95 proc={{process_idx}}"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{% from '_macros.html.j2' import render_table %}
+<section id="per-call-latency">
+  <h3>4.2 지연 p99 (ms)</h3>
+  {{ render_table(ctx.per_call_latency_table) }}
+  <p class="note">p99 가 saturation plateau (HSM 최대 처리량 영역) 에서 측정한 결과로,
+  op 자체의 latency 보다는 동시성 큐 대기 시간이 큽니다. HSM 갯수가 줄어도 p99 절댓값
+  변화는 처리량 변화에 비해 작습니다 — HSM 자체 처리 latency 는 일정하고, 변동하는
+  것은 동시 요청 큐.</p>
+
+  <h3>4.3 오류 건수</h3>
+  {{ render_table(ctx.per_call_error_table) }}
+  <p class="note">cs={{ ctx.core_results.desired_size }} 에서 오류 거의 0건. cs 가 줄어
+  HSM 부하가 가장 높은 조건에서만 오류가 두드러집니다. 처리량에는 영향 무시 가능
+  (전체 {{ ctx.core_results.total_errors }}건 / 약 {{ '{:,.0f}'.format(ctx.core_results.total_transactions / 1e6) }}백만 트랜잭션).</p>
+</section>

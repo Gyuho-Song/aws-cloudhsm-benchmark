@@ -1,0 +1,38 @@
+<section id="operational-guidance">
+  <h2>5. 운영 가이드</h2>
+
+  <h3>5.1 BizTPS 산정 가이드</h3>
+  <p>본 측정은 <strong>CloudHSM 단일 호출 (per-call)</strong> 기준입니다. 한 비즈니스
+  트랜잭션이 여러 HSM 호출로 구성되는 경우, 비즈니스 TPS = ops/s ÷ (트랜잭션 당 HSM 호출 수)
+  로 환산합니다.</p>
+  {% if ctx.operational_guidance.biztps_examples %}
+  <table class="kv-table">
+    {% for label, val in ctx.operational_guidance.biztps_examples %}
+    <tr><th>{{ label }}</th><td>{{ val }}</td></tr>
+    {% endfor %}
+  </table>
+  {% endif %}
+
+  <h3>5.2 HSM 갯수별 권장 적용</h3>
+  <table class="data-table">
+    <thead><tr><th>시나리오</th><th>권장 HSM 갯수</th><th>근거</th></tr></thead>
+    <tbody>
+      {% for scenario, hsms, basis in ctx.operational_guidance.hsm_recommendations %}
+      <tr><td>{{ scenario }}</td><td>{{ hsms }}</td><td>{{ basis }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <h3>5.3 동시성 권장값</h3>
+  <p>운영 어플리케이션에서 CloudHSM 호출 시, HSM 부하가 saturation 미만으로 유지되도록
+  권장하는 최대 동시 요청 수입니다. 이 값을 초과하면 처리량은 거의 늘지 않고 p99 latency 만
+  급증합니다.</p>
+  <table class="data-table">
+    <thead><tr><th>HSM 갯수</th><th>권장 최대 동시 요청 수</th></tr></thead>
+    <tbody>
+      {% for cs, n in ctx.operational_guidance.concurrency_recommendations %}
+      <tr><td>{{ cs }}</td><td>~{{ '{:,}'.format(n) }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>

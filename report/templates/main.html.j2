@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <title>CloudHSM BMT 측정 보고서 — {{ ctx.run_id }}</title>
+  <link rel="stylesheet" href="../static/styles.css">
+  <link rel="stylesheet" href="../static/noto-sans-cjk-kr.css">
+</head>
+<body>
+  <header class="cover">
+    <h1>CloudHSM 성능 측정 보고서</h1>
+    <table class="meta-table">
+      <tr><th>Run ID</th><td><code>{{ ctx.run_id }}</code></td></tr>
+      <tr><th>측정 시작</th><td>{{ ctx.started_at.strftime('%Y-%m-%d %H:%M UTC') if ctx.started_at else '—' }}</td></tr>
+      <tr><th>측정 종료</th><td>{{ ctx.completed_at.strftime('%Y-%m-%d %H:%M UTC') if ctx.completed_at else '—' }}</td></tr>
+      <tr><th>총 측정 셀</th><td>{{ ctx.core_results.total_cells }}</td></tr>
+      <tr><th>발행</th><td>{{ ctx.generated_at.strftime('%Y-%m-%d %H:%M UTC') }}</td></tr>
+    </table>
+  </header>
+
+  {% include 'sections/00-summary.html.j2' %}
+  {% include 'sections/01-environment.html.j2' %}
+  {% include 'sections/02-method.html.j2' %}
+  {% include 'sections/05-percall-throughput.html.j2' %}
+  {% include 'sections/06-percall-latency.html.j2' %}
+  {% include 'sections/operational-guidance.html.j2' %}
+
+  <footer>
+    <p class="footnote">본 보고서는 RunControl UI 가 측정 종료 시 자동 생성합니다.
+    원시 데이터는 S3 <code>runs/{{ ctx.run_id }}/</code> Parquet 파일을 참고하세요.</p>
+  </footer>
+</body>
+</html>

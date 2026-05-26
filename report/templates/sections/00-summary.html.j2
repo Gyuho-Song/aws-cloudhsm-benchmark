@@ -1,0 +1,16 @@
+{% from '_macros.html.j2' import render_table %}
+<section id="summary">
+  <h2>1. 핵심 결과</h2>
+  {{ render_table(ctx.core_results_table) }}
+
+  <ul class="bullets">
+    <li>HSM 갯수와 처리량이 거의 정확히 비례합니다 (선형 확장).</li>
+    {% set base = ctx.core_results.aggregates | selectattr('cluster_size', 'equalto', ctx.core_results.desired_size) | list %}
+    {% if base %}
+    <li>HSM 1대당 약 {{ '{:,.0f}'.format(base[0].mean_ops_per_sec / ctx.core_results.desired_size) }} ops/s 안정 처리.</li>
+    {% endif %}
+    <li>전체 오류 {{ ctx.core_results.total_errors }}건 / 약 {{ '{:,.0f}'.format(ctx.core_results.total_transactions / 1e6) }}백만 트랜잭션 — 운영상 무시 가능 수준.</li>
+  </ul>
+
+  <p class="lede">HSM 장애로 cluster 가 일시적으로 N대로 줄어들 경우, 처리량은 N/{{ ctx.core_results.desired_size }} 비율로 선형 감소합니다. cs={{ ctx.core_results.desired_size }} 환경에서 평균 부하가 cs={{ ctx.core_results.desired_size }} 처리량의 50 % 이내라면 HSM 1~2대 잃어도 운영 가능합니다.</p>
+</section>

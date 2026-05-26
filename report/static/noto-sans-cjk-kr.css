@@ -1,0 +1,20 @@
+/* Noto Sans CJK KR is bundled at static/NotoSansCJKkr-{Regular,Bold}.otf at deploy time.
+ * The actual TTF/OTF is fetched once during environment setup (see report/README.md).
+ * SIL OFL license — redistribution-friendly.
+ */
+
+@font-face {
+  font-family: "Noto Sans CJK KR";
+  src: local("Noto Sans CJK KR"), local("NotoSansCJKkr-Regular"),
+       url("./NotoSansCJKkr-Regular.otf") format("opentype");
+  font-weight: 400;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: "Noto Sans CJK KR";
+  src: local("Noto Sans CJK KR Bold"), local("NotoSansCJKkr-Bold"),
+       url("./NotoSansCJKkr-Bold.otf") format("opentype");
+  font-weight: 700;
+  font-style: normal;
+}

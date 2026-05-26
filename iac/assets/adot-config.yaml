@@ -1,0 +1,60 @@
+# ADOT collector configuration — owned by Unit 3, deployed to S3 by ObservabilityStack.
+# Loader EC2 user-data (Unit 1) downloads this file and substitutes ${AMP_REMOTE_WRITE_URL}
+# from SSM at boot time.
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 127.0.0.1:4317
+      http:
+        endpoint: 127.0.0.1:4318
+
+processors:
+  batch:
+    timeout: 1s
+    send_batch_size: 1024
+  resourcedetection:
+    detectors: [env, ec2]
+    timeout: 2s
+  # 2026-05-24 multi-cluster scale-out: stamp cloud.region as a resource
+  # attribute so cross-region rollups in apne2 AMG can split metrics by
+  # region in addition to slot/cluster. ec2 detector already populates this
+  # but `resource` processor with action=upsert lets us pin the value if the
+  # detector misses (boot ordering, IMDSv2 delay).
+  resource:
+    attributes:
+      - key: cloud.region
+        value: ${AWS_REGION}
+        action: upsert
+
+exporters:
+  prometheusremotewrite:
+    endpoint: ${AMP_REMOTE_WRITE_URL}
+    auth:
+      authenticator: sigv4auth
+    resource_to_telemetry_conversion:
+      enabled: true
+
+extensions:
+  sigv4auth:
+    # 2026-05-24: region 은 ${AWS_REGION} 로 동적 (loader EC2 의 IMDSv2 region
+    # 또는 환경변수). multi-region 배포 시 us-west-2 collector 도 자기 region
+    # 의 AMP 에 sigv4 sign 해야 한다 — apne2 hardcode 면 SignatureDoesNotMatch.
+    region: ${AWS_REGION}
+    service: aps
+  health_check:
+    endpoint: 127.0.0.1:13133
+
+service:
+  extensions: [sigv4auth, health_check]
+  pipelines:
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, resourcedetection, resource, batch]
+      exporters: [prometheusremotewrite]
+  telemetry:
+    logs:
+      level: info
+    metrics:
+      address: 127.0.0.1:8888

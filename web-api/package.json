@@ -1,0 +1,30 @@
+{
+  "name": "hsm-bmt-web-api",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "tsc --noEmit",
+    "test": "jest"
+  },
+  "dependencies": {
+    "aws-jwt-verify": "4.0.0"
+  },
+  "devDependencies": {
+    "@aws-sdk/client-cloudhsm-v2": "^3.600.0",
+    "@aws-sdk/client-dynamodb": "^3.600.0",
+    "@aws-sdk/client-s3": "^3.600.0",
+    "@aws-sdk/client-ssm": "^3.600.0",
+    "@aws-sdk/lib-dynamodb": "^3.600.0",
+    "@aws-sdk/s3-request-presigner": "^3.600.0",
+    "@aws-sdk/signature-v4": "^3.374.0",
+    "@smithy/node-http-handler": "^3.3.3",
+    "@types/aws-lambda": "^8.10.137",
+    "@types/jest": "^29.5.12",
+    "@types/node": "^20.11.30",
+    "aws-sdk-client-mock": "^4.0.0",
+    "esbuild": "^0.28.0",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.2",
+    "typescript": "^5.4.3"
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "name": "hsm-bmt-cluster-init",
+  "version": "0.1.0",
+  "private": true,
+  "main": "index.ts",
+  "scripts": {
+    "build": "tsc"
+  },
+  "dependencies": {
+    "node-forge": "^1.3.1"
+  },
+  "devDependencies": {
+    "@aws-sdk/client-cloudhsm-v2": "^3.600.0",
+    "@aws-sdk/client-secrets-manager": "^3.600.0",
+    "@types/aws-lambda": "^8.10.137",
+    "@types/node-forge": "^1.3.11",
+    "@types/node": "^20.11.30",
+    "typescript": "^5.4.3"
+  }
+}
