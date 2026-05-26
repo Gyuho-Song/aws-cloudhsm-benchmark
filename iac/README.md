@@ -1,105 +1,152 @@
-# `iac/` — CloudHSM CloudHSM BMT Phase 1 Infrastructure
+# `iac/` — AWS CDK 인프라
 
-AWS CDK (TypeScript) implementation of **Unit 1: Infrastructure** per
-`aidlc-docs/construction/u1-infrastructure/infrastructure-design/infrastructure-design.md`.
+CloudHSM 벤치마크 시스템의 모든 AWS 리소스를 정의하는 CDK 앱(TypeScript). VPC와 HSM 클러스터부터 Cognito·API Gateway·Grafana(AMG/AMP)·CloudWatch까지 한 번에 합성·배포합니다.
 
-## What's in here
+## 스택 구성
+
+3개 스택으로 분리되어 있습니다.
+
+| Stack | 무엇을 만드나 | 의존 |
+|---|---|---|
+| `CoreStack` | VPC(4 AZ) + 보안그룹 + CloudHSM v2 클러스터 + 로더 EC2 + S3 결과 버킷 + Secrets Manager(CA/CO/CU) + IAM(LoaderInstanceRole, OperatorRole) + CodeCommit/GitHub repository | 없음 (스택 진입점) |
+| `WebStack` | Cognito User Pool + Hosted UI + DynamoDB(`bmt-runs/units/lock/admin-sessions`) + API Gateway + Lambda 13개 + CloudFront + 운영자 콘솔 정적 호스팅 + Pre-token-gen 트리거 + 인증 알람 | `CoreStack` |
+| `ObservabilityStack` | AMP(Prometheus) workspace + AMG(Grafana) workspace + ADOT 콜렉터 설정 + CloudWatch 대시보드 3종 + AlertManager (Slack/SNS) | `CoreStack` |
+
+## 디렉토리
 
 ```
-bin/hsm-bmt.ts                    CDK app entry
-lib/core-stack.ts                 CoreStack — composes 8 constructs
-lib/constructs/
-  network-construct.ts            VPC, subnets (4 AZ), SGs, VPC endpoints
-  iam-construct.ts                LoaderInstanceRole + OperatorRole (cross-account)
-  crypto-construct.ts             SecretsManager: ca-private-key (placeholder), CO/CU passwords
-  hsm-cluster-construct.ts        CfnCluster + 6 fixed-id CfnHsm + Cluster-Init Custom Resource
-  loader-instance-construct.ts    c8i.8xlarge with bootstrap user-data
-  storage-construct.ts            S3 results bucket with KMS + lifecycle
-  repository-construct.ts         CodeCommit OR GitHub fallback (C-9)
-  iperf-peer-construct.ts         Ephemeral iperf3 peer (Pre-check Gate 1 only)
-lambda/cluster-init/index.ts      Lambda: ephemeral CA + cluster InitializeCluster
-assets/loader-bootstrap.sh        EC2 user-data (Corretto 21, SDK 5, ADOT, iperf3)
-test/                             Jest behavioral + snapshot tests
+bin/
+  hsm-bmt.ts                  CDK app entry — 3 스택 인스턴스화
+
+lib/
+  core-stack.ts               CoreStack 본체
+  web-stack.ts                WebStack 본체
+  observability-stack.ts      ObservabilityStack 본체
+  constructs/
+    network-construct.ts      VPC + 4 private subnet + VPC endpoint (S3, SSM, KMS, …)
+    iam-construct.ts          LoaderInstanceRole + 크로스어카운트 OperatorRole
+    crypto-construct.ts       Secrets Manager 3개 (CA private key placeholder, CO 패스워드, CU 패스워드)
+    hsm-cluster-construct.ts  CloudHSM v2 클러스터 placeholder + hsm-slots SSM (logical-az 매핑은 cluster-create.sh에서)
+    loader-instance-construct.ts  c8i.8xlarge 로더 EC2 + 인스턴스 프로파일 + bootstrap user-data
+    storage-construct.ts      결과 저장용 S3 버킷 (KMS, lifecycle, public block)
+    repository-construct.ts   CodeCommit (또는 GitHub 핸드오프 SSM 파라미터)
+    cognito-construct.ts      User Pool + Hosted UI + admin/viewer 그룹
+    dynamodb-construct.ts     bmt-runs / bmt-units / bmt-runs-lock / bmt-admin-sessions
+    api-construct.ts          REST API + 14개 라우트 + GatewayResponse(401/403 한국어)
+    auth-lambdas-construct.ts custom-authorizer + pre-token-gen Lambda 정의
+    auth-alarms-construct.ts  authorizer 4xx 알람, lock 충돌 알람 등
+    frontend-construct.ts     S3 + CloudFront + OAC, web/out/ asset 배포
+    amp-construct.ts          AMP workspace + remote-write 권한
+    amg-construct.ts          AMG workspace + AMP/CloudWatch 데이터소스
+    adot-config-construct.ts  ADOT 콜렉터 설정 S3에 업로드
+    alert-construct.ts        SNS 알람 토픽 + Prometheus alert rule
+    dashboard-construct.ts    CloudWatch 대시보드 (live / native-aws / per-call)
+
+lambda/
+  cluster-init/               CFN Custom Resource — 클러스터 placeholder 생성
+  amg-post-deploy/            AMG workspace 생성 후 데이터소스/대시보드 자동 등록
+  report-trigger/             DDB Streams → 측정 완료 시 render-report.sh 호출
+
+scripts/                      CFN 외부에서 운영자가 직접 실행하는 셸
+  cluster-create.sh           CloudHSM 클러스터 생성 + activation + KEK 사전 등록
+  cluster-delete.sh           클러스터 안전 폐기 (모든 HSM 삭제 후 cluster delete)
+  provision-keys.sh           BMT_KEK_AES128 / BMT_KEK_AES256 사전 생성 (cloudhsm-cli)
+  amp-alert-manager-apply.sh  AlertManager 설정을 AMP에 PUT
+
+assets/                       Lambda/EC2 user-data 또는 SSM SendCommand로 EC2에 푸시되는 파일
+  loader-bootstrap.sh         로더 EC2 user-data — Corretto/CloudHSM SDK/ADOT/Python 설치, systemd unit 생성
+  hard-scale-cluster.sh       HARD scale 도구 — DeleteHsm/CreateHsm로 cs 변경, flock + cluster-state SSM 락
+  render-report.sh            로더 EC2에서 Python 리포트 생성 + S3 업로드
+  adot-config.yaml            ADOT 콜렉터 설정 (OTLP/HTTP receiver, AMP remote-write)
+  alert-manager.yaml          Prometheus AlertManager 라우팅 설정
+
+alerts/
+  hsm-bmt-rules.yaml          PromQL alert rules (HSM 갯수, 에러율, 워커 활성 등)
+
+dashboards/                   AMG에 등록되는 Grafana 대시보드 JSON 3종
+  live-run.json               진행 중 run의 cell-by-cell 진척도/지표
+  native-aws.json             CloudWatch 네이티브 메트릭 (네트워크, 디스크, EBS)
+  per-call.json               PER_CALL family 전용 (procs/workers, p99 분포)
+
+test/                         Jest behavioral + snapshot 테스트 (오프라인, AWS 호출 없음)
 ```
 
-## Setup
+## 빌드 & 테스트
 
 ```bash
 cd iac
 npm install
-npm run build
-npm test
+npm run build           # tsc — synth는 ts-node로도 가능하지만 prod는 빌드 후 사용
+npm test                # 모든 construct + 스택 합성 검증, 오프라인
 ```
 
-Tests run offline (CDK assertions + mocked SDK clients). No AWS credentials needed.
+## 컨텍스트 변수 (`cdk.json` 또는 `--context`)
 
-## Configuration (cdk.json context)
+| 키 | 기본값 | 설명 |
+|---|---|---|
+| `desiredHsmCount` | `6` | 시작 시 HSM 갯수. 2~6 범위. cs 시나리오와 무관하게 hsm-slots SSM의 placeholder 갯수만 결정 |
+| `clusterCount` | `1` | 단일 클러스터(=1)만 검증된 코드. >1 경로는 multi-cluster 폐기 후 미사용 |
+| `hsmsPerCluster` | `desiredHsmCount` | 단일 클러스터 경로에서는 지정 불필요 |
+| `sdsAccountId` | `000000000000` | 핸드오프 파트너의 AWS account ID (OperatorRole 신뢰 정책) |
+| `sdsExternalId` | `hsm-bmt-handoff` | 크로스 어카운트 assume-role의 ExternalId |
+| `repositoryProvider` | `codecommit` | `codecommit` 또는 `github`. github 선택 시 CodeCommit 대신 SSM 핸드오프 파라미터만 생성 |
+| `enableCustomAuthorizer` | `true` | API Gateway authorizer 종류. `false`면 Cognito JWT authorizer fallback |
 
-| Key                  | Default            | Description |
-|----------------------|--------------------|-------------|
-| `desiredHsmCount`    | `6`                | 2..6 HSMs; scale-down trajectory per Q5 (`6→5→4→3→2`) |
-| `sdsAccountId`       | `000000000000`     | <PARTNER> AWS account ID for OperatorRole trust |
-| `sdsExternalId`      | `hsm-bmt-handoff`  | ExternalId condition for cross-account assume-role |
-| `repositoryProvider` | `codecommit`       | `codecommit` or `github` (per C-9 fallback) |
-| `iperfPeer`          | `false`            | When `true`, deploys ephemeral iperf3 peer for Gate 1 |
+## 배포 절차
 
-Set via CLI: `npm run cdk -- synth --context desiredHsmCount=4 --context iperfPeer=true`.
-
-Or edit `cdk.json` directly.
-
-## Deploy procedure (Day 1-2)
+### 최초 1회
 
 ```bash
-# Day 1 — initial 6-HSM cluster + supporting infra
-npm run cdk -- bootstrap aws://${ACCOUNT}/ap-northeast-2
-npm run cdk -- synth CoreStack
-npm run cdk -- deploy CoreStack --require-approval never
+cd iac
+npm install && npm run build
+npx cdk bootstrap aws://${AWS_ACCOUNT}/ap-northeast-2
 
-# Day 2 — Pre-check Gate 1 (iperf3)
-npm run cdk -- deploy CoreStack --require-approval never --context iperfPeer=true
-# (run iperf3 client on loader EC2 against IperfPeer instance)
-# After Gate 1 passes:
-npm run cdk -- deploy CoreStack --require-approval never --context iperfPeer=false
+# Day 1 — 코어 인프라 + HSM 클러스터 placeholder
+npx cdk deploy CoreStack --require-approval never
+
+# Day 1 — CloudHSM 클러스터 실제 생성 + activation (CFN 밖에서 실행)
+./scripts/cluster-create.sh
+./scripts/provision-keys.sh        # BMT_KEK_AES128/256 등록
+
+# Day 2 — 운영자 콘솔 + 관측성
+npx cdk deploy WebStack ObservabilityStack --require-approval never
+./scripts/amp-alert-manager-apply.sh
 ```
 
-## Scale-down procedure (during Day 4 measurement)
-
-```bash
-npm run cdk -- deploy CoreStack --context desiredHsmCount=5
-# wait for HSM in Az2Slot2 to be removed (~5-10 min)
-npm run cdk -- deploy CoreStack --context desiredHsmCount=4
-# ... continues 4 → 3 → 2
-```
-
-Logical IDs are pinned, so the scale-down order is deterministic per Q5 trajectory.
-
-## Verification (Step 10 of code generation plan)
+### 코드 변경 후
 
 ```bash
 npm run build
-npm test
-npm run cdk -- synth CoreStack --context desiredHsmCount=2
-npm run cdk -- synth CoreStack --context desiredHsmCount=6
-npx cdk-nag CoreStack --rules AwsSolutionsChecks   # post-build static check
+npx cdk diff WebStack          # 변경 내용 확인 (Lambda asset 해시, IAM 정책 등)
+npx cdk deploy WebStack --require-approval never
 ```
 
-## <PARTNER> handoff (Phase 2)
+`web/out/` 가 frontend 배포 source (Next.js export 산출물). `npm run build`를 `web/`에서 먼저 돌려야 합니다.
 
-Bucket `hsm-bmt-results-<account>-ap-northeast-2`:
-- `runs/{runId}/` — Parquet measurement results (no auto-expiry — protected for Phase 2)
-- `reports/{runId}/` — PDF + HTML
+### 클러스터 정리
 
-Cross-account read for <PARTNER> via `OperatorRole`:
+```bash
+./scripts/cluster-delete.sh    # 모든 HSM delete + 클러스터 delete (수 분 소요)
+npx cdk destroy CoreStack WebStack ObservabilityStack
 ```
+
+## 핸드오프
+
+S3 버킷 `hsm-bmt-results-<account>-ap-northeast-2`:
+- `runs/{runId}/` — 측정 결과 Parquet (per-proc 단위, 자동 만료 없음)
+- `reports/{runId}/` — PDF + HTML 리포트
+
+OperatorRole로 크로스 어카운트 read 가능:
+
+```bash
 aws sts assume-role \
-  --role-arn ${OPERATOR_ROLE_ARN} \
+  --role-arn arn:aws:iam::<account>:role/HsmBmt-OperatorRole \
   --external-id ${SDS_EXTERNAL_ID} \
-  --role-session-name sds-phase2
+  --role-session-name partner-readonly
 ```
 
-## Migration to customer-managed KMS key (post-handoff, optional)
+## 주의 사항
 
-The S3 bucket uses AWS-managed KMS by default. To migrate to a customer-managed
-key for long-term Phase 2 use, replace `s3.BucketEncryption.KMS_MANAGED` with
-`s3.BucketEncryption.KMS` and pass an explicit `kms.Key`. Existing objects can
-be rewritten via S3 Replication Inventory + bucket-level re-encryption.
+- `iac/cdk.context.json`은 `.gitignore`되어 있습니다 (account 별 AZ 캐시). 첫 synth 시 자동 생성.
+- `loader-instance-construct`는 user-data가 길어서 EC2 user-data 16KB 제한에 가깝습니다. 추가하려면 SSM Run Command로 분리하세요.
+- 운영자 콘솔이 사용하는 `frontend-construct`는 `../web/out/`에서 정적 파일을 읽습니다. `web/` 빌드를 먼저 돌리지 않으면 합성 실패.
