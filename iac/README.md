@@ -85,7 +85,7 @@ npm test                # 모든 construct + 스택 합성 검증, 오프라인
 | 키 | 기본값 | 설명 |
 |---|---|---|
 | `desiredHsmCount` | `6` | 시작 시 HSM 갯수. 2~6 범위. cs 시나리오와 무관하게 hsm-slots SSM의 placeholder 갯수만 결정 |
-| `clusterCount` | `1` | 단일 클러스터(=1)만 검증된 코드. >1 경로는 multi-cluster 폐기 후 미사용 |
+| `clusterCount` | `1` | 단일 클러스터 (>1은 미사용) |
 | `hsmsPerCluster` | `desiredHsmCount` | 단일 클러스터 경로에서는 지정 불필요 |
 | `sdsAccountId` | `000000000000` | 핸드오프 파트너의 AWS account ID (OperatorRole 신뢰 정책) |
 | `sdsExternalId` | `hsm-bmt-handoff` | 크로스 어카운트 assume-role의 ExternalId |

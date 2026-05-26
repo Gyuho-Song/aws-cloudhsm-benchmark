@@ -107,7 +107,7 @@ KEK reuse 모드(`PerCallOperationsCloudHsmKekReuse`와 동등)는 매 트랜잭
 
 ## 버전 fixed-pinning 정책
 
-- 운영 중에는 binary를 **절대 hot-replace하지 말 것** — 측정 도중 swap하면 EC2 bash가 lazy-read한 offset이 어긋나 syntax error로 die할 수 있음 (2026-05-26 incident)
+- 운영 중에는 binary를 **절대 hot-replace하지 말 것** — 측정 도중 swap하면 EC2 bash가 lazy-read한 offset이 어긋나 syntax error로 die할 수 있음
 - 새 binary 배포 → loader-info SSM publish → 운영자가 `/runs/new`에서 새 versionId/sha256 입력 → 다음 run부터 사용
 
 ## 호환성

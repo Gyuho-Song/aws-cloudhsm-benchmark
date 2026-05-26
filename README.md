@@ -1,10 +1,10 @@
-# AWS CloudHSM Benchmark (HOS edition)
+# AWS CloudHSM Benchmark
 
 AWS CloudHSM v2 (`hsm2m.medium`, FIPS) 클러스터의 **처리량(ops/sec)**과 **지연시간(p50/p95/p99)**을 운영 환경과 동일한 방식으로 측정하기 위한 end-to-end 벤치마크 시스템입니다. PKCS#11 직접 호출을 사용하는 C 네이티브 로더, 운영자용 Next.js 콘솔, 측정 후 PDF/HTML 리포트 생성까지 한 묶음으로 제공합니다.
 
 ## 핵심 특징
 
-- **HARD scale 측정**: 클러스터 크기 변경(cs=2~6)을 `cloudhsmv2:DeleteHsm` / `CreateHsm`로 실제 HSM 갯수를 바꿔가며 측정합니다. 로더 설정만 토글하는 soft scale은 mesh 동작이 다르기 때문에 폐기되었습니다.
+- **HARD scale 측정**: 클러스터 크기 변경(cs=2~6)을 `cloudhsmv2:DeleteHsm` / `CreateHsm`로 실제 HSM 갯수를 바꿔가며 측정합니다.
 - **C 네이티브 로더**: PKCS#11 라이브러리(`/opt/cloudhsm/lib/libcloudhsm_pkcs11.so`)를 `dlopen` + `pthread`로 직접 호출합니다. JVM/JCE 오버헤드 없음.
 - **Multi-process 포화**: 하나의 cell당 N개의 별도 프로세스를 띄워 mTLS connection pool과 PKCS#11 세션을 분리합니다. cs별 sweet-spot은 `procsByCluster`에 박혀 있습니다 (cs=6→procs=12, 5→12, 4→10, 3→8, 2→6).
 - **클러스터 상태 인식**: SSM Parameter `/<prefix>/core/cluster-state` 락 + UI 헤더 chip으로 scaling 진행 / stale lock / degraded 상태를 운영자에게 명확히 노출합니다.
@@ -36,8 +36,6 @@ AWS CloudHSM v2 (`hsm2m.medium`, FIPS) 클러스터의 **처리량(ops/sec)**과
 | `per-call-full-hard` | PER_CALL · Full | AES-128/256 × 5 modes × 256/1024B × cs 6→5→4→3→2 (HSM-adaptive procs) | 100 unit, cs=6 시작 → 종료 시 cs=2 유지 | ~13시간 |
 | `per-call-partial-hard` | PER_CALL · Partial | AES-128/256 × 5 modes × 256/1024B × 단일 cs (운영자 선택) | cs=6 시작 → 선택한 사이즈로 축소, 측정 후 유지 | ~30~120분 |
 | `custom-hard` | Custom | 운영자가 axis 직접 선택 (단일 cluster size) | 자동 (PreFlightPanel이 +N 프로비저닝 안내) | 가변 |
-
-모든 시나리오는 HARD 스케일을 사용합니다. 단순화·일관성을 위해 logical/V3/multi-cluster 시나리오는 모두 폐기되었습니다.
 
 ## 데이터 흐름
 
