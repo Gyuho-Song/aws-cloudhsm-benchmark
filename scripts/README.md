@@ -8,16 +8,16 @@
 측정 흐름 전체를 관장하는 **상위 orchestrator**. 진입점은 `web-api/start-run.ts`가 SSM SendCommand로 호출.
 
 - `/etc/hsm-bmt/runner.env`에서 RUN_ID, EXPECTED_VERSION_ID, EXPECTED_SHA256, S3_BUCKET, HSM_BMT_PROCS, HSM_BMT_CLUSTER_SIZES 등을 읽어들임
-- cluster-state SSM이 `scaling`이면 즉시 종료 (HOS pre-flight gate)
+- cluster-state SSM이 `scaling`이면 즉시 종료 (pre-flight gate)
 - DDB `bmt-runs` status를 PENDING → RUNNING으로 갱신 + Run-level 락 획득
 - `HSM_BMT_CLUSTER_SIZES` (예: `6,5,4,3,2`)를 순차로 sweep:
   1. 현재 ACTIVE HSM 수 ≠ target → `hard-scale-cluster.sh <target>` 호출
-  2. 이미 target → 스킵 (RCA Phase B 최적화)
+  2. 이미 target → 스킵 (불필요한 mesh 재구성 방지)
   3. `HSM_BMT_PROCS_BY_CLUSTER` 매핑이 있으면 cs별 sweet-spot procs로 override
-  4. `per-call-bench-wrapper.sh`를 백그라운드로 실행 + 추적된 PID로 `wait` (RCA Phase C 인터럽트 가능)
+  4. `per-call-bench-wrapper.sh`를 백그라운드로 실행 + 추적된 PID로 `wait` (SIGTERM 인터럽트 가능)
 - 셀별 abort 시그널 폴링 (`/<prefix>/runs/<runId>/abort` SSM)
 - `set -e ERR trap` + `EXIT trap` 으로 어떤 종료 경로에서도 status를 FAILED로 마킹 + Run lock 해제
-- 자동 reset 폐기 (HOS-Step14): 측정 종료 시 cluster size 그대로 유지. 다음 run의 PreFlight가 부족하면 운영자에게 알림
+- 측정 종료 시 cluster size 그대로 유지 (자동 reset 없음). 다음 run의 PreFlight가 부족하면 운영자에게 알림
 
 ### `per-call-bench-wrapper.sh`
 PER_CALL family용 cell-단위 wrapper. `orchestrate.sh`가 cell별로 호출.
@@ -64,15 +64,15 @@ PER_CALL family용 cell-단위 wrapper. `orchestrate.sh`가 cell별로 호출.
 | `EXPECTED_VERSION_ID` | S3에 publish된 loader binary의 versionId |
 | `EXPECTED_SHA256` | 동상의 sha256 (binary 검증용) |
 | `S3_BUCKET` | 결과 업로드 대상 (`hsm-bmt-results-<account>-<region>`) |
-| `HSM_BMT_RUNNER` | `c-native-multiproc` (HOS only) |
+| `HSM_BMT_RUNNER` | `c-native-multiproc` (현재 유일하게 지원) |
 | `HSM_BMT_PROCS` | cell당 프로세스 수 (1~16) |
 | `HSM_BMT_PROCS_BY_CLUSTER` | `6:12,5:12,4:10,3:8,2:6` 형식 — cs별 sweet-spot |
 | `HSM_BMT_PROCS_256` / `_1024` | payload별 procs override (선택) |
 | `HSM_BMT_WORKER_COUNT` | 프로세스당 thread 수 (기본 64) |
 | `HSM_BMT_CLUSTER_SIZES` | sweep 순서 (예: `6,5,4,3,2`) |
 | `HSM_BMT_AUTO_SCALE` | `1`이면 sweep, `0`이면 단일 패스 |
-| `HSM_BMT_HARD_SCALE` | `1` 고정 (HOS) |
-| `HSM_BMT_FAMILY` | `PER_CALL_RAW` 고정 (HOS) |
+| `HSM_BMT_HARD_SCALE` | `1` 고정 |
+| `HSM_BMT_FAMILY` | `PER_CALL_RAW` 고정 |
 | `HSM_BMT_ALGOS` / `_MODES` / `_PAYLOADS` | 매트릭스 axis (csv) |
 
 ## SSM 파라미터 의존성
